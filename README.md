@@ -1,1 +1,1 @@
-# Proyecto-de-Procesamiento-de-Im-genes-Digitales-y-Visi-n-por-Computador
+# Proyecto-de-Procesamiento-de-Imgenes-Digitales-y-Visin-por-Computador
