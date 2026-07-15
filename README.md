@@ -5,7 +5,7 @@
 **Equipo:** [Tus Nombres/Apellidos Aquí]
 
 ## Enlaces del Proyecto
-* **Video 1 (Demostración de los 3 detectores):** []
+* **Video 1 (Demostración de los 3 detectores):** [https://youtu.be/HCQj_n97s-8]
 * **Video 2 (Justificación de despliegue - 3 min):** [https://youtu.be/XaC0UP39Vbw]
 
 ---
