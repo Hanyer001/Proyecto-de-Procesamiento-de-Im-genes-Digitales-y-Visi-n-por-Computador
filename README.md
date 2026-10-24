@@ -1,70 +1,64 @@
-# Proyecto Final: Monitoreo de EPP y Detección de Infracciones de Seguridad
+# Construction Safety Detection — Computer Vision Study
 
-**Facultad de Ingeniería - Universidad Alberto Hurtado**
-**Asignatura: Procesamiento de Imágenes Digitales y Visión por Computador
-**Equipo:** [Tus Nombres/Apellidos Aquí]
+An academic notebook exploring **hard-hat violation detection** with a fine-tuned YOLOv8n detector, open-vocabulary YOLO-World, Florence-2 and Moondream2.
 
-## Enlaces del Proyecto
-* **Video 1 (Demostración de los 3 detectores):** [https://youtu.be/HCQj_n97s-8]
-* **Video 2 (Justificación de despliegue - 3 min):** [https://youtu.be/XaC0UP39Vbw]
+Developed for the Digital Image Processing and Computer Vision course at Universidad Alberto Hurtado. The notebook and demonstrations are in Spanish.
 
----
+**[Read the notebook](proyecto.ipynb)** · [Detector demonstration](https://youtu.be/HCQj_n97s-8) · [Deployment discussion](https://youtu.be/XaC0UP39Vbw)
 
-## 1. Contexto y Misión
-Este proyecto desarrolla y evalúa un sistema de monitoreo de seguridad por video para una empresa constructora. El objetivo principal es vigilar el uso de equipo de protección personal (EPP) mediante las cámaras de la obra, enfocándose críticamente en detectar a los trabajadores que **no** llevan casco de seguridad ("NO-Hardhat"). 
+## Research question
 
-Para lograrlo, se evaluaron tres paradigmas tecnológicos distintos sobre el dataset **CSS-Data** para determinar la mejor solución a desplegar en el entorno de producción. Debido a las limitaciones de memoria de la GPU T4 utilizada, el video de monitoreo fue muestreado a ~1 FPS para permitir la evaluación justa de los modelos de lenguaje visual (VLM) generativos, los cuales no pueden operar a 30 FPS en este hardware.
+How do a task-specific detector, an open-vocabulary detector and vision-language models behave when asked whether a construction worker is **not wearing a hard hat**?
 
-## 2. Los Tres Frameworks Evaluados
-Se midieron los siguientes modelos sobre los mismos frames exactos del conjunto de prueba:
+The notebook uses the Construction Site Safety dataset from Roboflow, version 30, and samples a separate demonstration video at approximately one frame per second. It explores localization, event-level classification, inference time and sensitivity to prompt wording.
 
-1. **Paradigma Cerrado (YOLOv8n):** Modelo afinado (fine-tuning) sobre las clases de EPP. Su salida entrega cajas con clase y nivel de confianza.
-2. **Vocabulario Abierto (YOLO-World):** Modelo ejecutado mediante inferencia zero-shot configurando la búsqueda de clases mediante texto (`set_classes(["hard hat", "head", "person"])`).
-3. **Modelos de Lenguaje Visual (VLM):**
-   * **Florence-2 (Grounding):** Ejecutado mediante la tarea `<OPEN_VOCABULARY_DETECTION>` para obtener cajas delimitadoras a partir de texto.
-   * **Moondream2 (Generativo):** Interrogado en lenguaje natural con la pregunta "¿Hay alguien en la imagen que no lleve casco de seguridad?" para obtener una respuesta binaria a nivel de evento.
+## Approaches
 
----
+| Approach | Model | Role in the experiment |
+| --- | --- | --- |
+| Closed vocabulary | Fine-tuned YOLOv8n | Detects dataset classes, including `NO-Hardhat`. |
+| Open vocabulary | YOLOv8s-World | Uses text classes such as `hard hat`, `head` and `person`. |
+| Grounded vision-language model | Florence-2-base | Demonstrates bounding-box grounding for a text query. |
+| Generative vision-language model | Moondream2, revision `2024-05-20` | Answers questions about missing hard hats and is tested with prompt variations. |
 
-## 3. Cuadro Comparativo de Métricas
+## Recorded event-level results
 
-La siguiente tabla resume el rendimiento de los tres paradigmas ejecutados bajo el mismo entorno de hardware (GPU T4):
+The final evaluation cell contains **14 manually labeled video frames**, including six positive hard-hat violations. These values come from the notebook's saved outputs; they have not been independently reproduced here.
 
-| Paradigma | Modelo | Precisión Caja (mAP@0.5) | Precisión Evento ($F_{1}$) | Velocidad (Inferencia) | Flexibilidad / Robustez |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Cerrado** | YOLOv8n | [0.XX] | [0.XX] | ~18.6 ms (>30 FPS) | Nula. Ciego ante la clase no vista ("lentes de seguridad"). |
-| **Abierto** | YOLO-World | [0.XX] | [0.XX] | ~77.6 ms | Alta (Zero-shot). Detecta nuevas clases sin reentrenar. |
-| **VLM** | Moondream2 / Florence-2 | N/A | [0.XX] | [X.XX] s (<1-2 FPS) | Sensible al prompt. Cambia su respuesta al variar la redacción. |
+| Model | True positives | False positives | False negatives | Event F1 |
+| --- | ---: | ---: | ---: | ---: |
+| YOLOv8n | 2 | 1 | 4 | 0.444 |
+| YOLO-World | 0 | 0 | 6 | 0.000 |
+| Moondream2 | 6 | 8 | 0 | 0.600 |
 
-*Nota sobre las métricas:* 
-* El cálculo de la intersección sobre unión a nivel de caja se rige por $IoU=|A\cap B|/|A\cup B|$.
-* El nivel-evento se calcula evaluando la pregunta binaria de infracción por frame utilizando $F_{1}=2~TP/(2~TP+FP+FN)$.
+Moondream2 predicted a violation in every evaluated frame. Its higher F1 in this small sample therefore does not establish useful discrimination between safe and unsafe frames. YOLOv8n also missed four of six positive frames. These results do **not** validate a production safety-monitoring system.
 
----
+The YOLO-World event heuristic treats a detected `head` as evidence of a missing hard hat; it does not establish a person-to-head-to-helmet association. Florence-2 is demonstrated separately and has no final event-level F1 result in the notebook.
 
-## 4. Análisis Crítico y Hallazgos
+## Reproduce the study
 
-### El Hallazgo Pedagógico: La Negación
-Durante el desarrollo del monitoreo, se evidenció que la pregunta más crítica en seguridad industrial es una negación ("¿hay alguien sin casco?"). Mientras que los modelos de vocabulario abierto y los VLM poseen un mayor nivel de "inteligencia" y razonamiento general, tropiezan severamente con la negación y los atributos. Por el contrario, el detector cerrado resuelve este problema de manera confiable únicamente porque se entrenó con una clase explícita `NO-Hardhat`.
+The notebook is designed around a **Google Colab-style Python environment with a CUDA GPU** and `/content/` paths. The recorded runs used a Tesla T4.
 
-### Licencias y Costos de Despliegue Comercial
-Se debe tener en consideración el licenciamiento en caso de que este sistema se escale a un producto comercial:
-* **YOLOv8 / Ultralytics:** AGPL-3.0
-* **YOLO-World:** GPL-3.0
-* **Florence-2:** MIT
-* **Moondream2:** Apache-2.0
-* **CSS-Data:** CC BY 4.0
+1. Download or clone this repository and open `proyecto.ipynb` in Colab or a compatible notebook environment.
+2. Review its installation cells and use an isolated runtime. The notebook installs Ultralytics, Roboflow and a pinned Transformers version for its VLM experiments.
+3. Download Construction Site Safety version 30 through Roboflow using your own credentials, entered at runtime. Never commit a key.
+4. Supply your own input video and update the `/content/videoplayback 2.mp4` path and dataset paths.
+5. Run frame extraction and training before cells that load the generated `best.pt` checkpoint.
+6. Review each sampled frame and align its label with the numerical filename order before running event evaluation. Do not reuse the included label list for a different video.
 
-### Sensibilidad de los VLM
-El modelo VLM (Moondream2) demostró varianza en su robustez. Al variar la redacción del prompt buscando la misma infracción de seguridad (ej: "¿Todos los trabajadores están usando casco?" vs. "Identifica si alguna persona olvidó ponerse el casco"), el modelo arrojó inconsistencias en sus predicciones, validando que la métrica de nivel-evento ($F_{1}$) es la comparación justa para aislar las debilidades del VLM en una tarea de monitoreo estricta.
+The repository contains the notebook, not the dataset, input video or trained weights. It is not a ready-to-run inference application.
 
----
+## Limitations and next steps
 
-## 5. La Decisión Final: ¿Qué detector desplegar y por qué?
+- The 14-frame event sample is too small to support generalization or a deployment claim.
+- The evaluation truncates predictions and labels to their minimum length. A reproducible evaluation should reject mismatched lengths instead.
+- Box-level metrics and binary event F1 answer different questions. YOLO-World's saved box validation requires review of class-ID mapping before comparison with the fine-tuned detector.
+- Saved timing outputs use different execution paths. Moondream's timed answer excludes image encoding, so these figures are not an end-to-end speed benchmark across models.
+- Spanish and English prompt variants produce different answers; parsing an answer by checking for `yes` is a limited classifier.
+- The notebook contains environment-specific dependency workarounds, including a dummy `flash_attn` module, and cells that load remote model code. It needs environment cleanup and pinned revisions before reliable reproduction.
 
-Basado en la evidencia recolectada, **nuestra recomendación es desplegar en producción el modelo de paradigma cerrado (YOLOv8n)**. 
+A stronger follow-up would use a larger held-out event dataset, verified class mappings, precision/recall and confusion matrices, repeated latency measurements and consistent prompts. Human review remains necessary when assessing safety-related outputs.
 
-Esta decisión se sustenta en tres pilares fundamentales obtenidos de nuestros propios números:
+## Dependencies and attribution
 
-1. **Velocidad Crítica:** Una cámara de monitoreo de obra opera en tiempo real (típicamente a 30 FPS). YOLOv8n demostró un tiempo de inferencia de apenas ~18.6ms por frame en el hardware T4 evaluado. Los modelos VLM, que requieren muestrear el video a ~1 FPS para no colapsar la memoria, introducirían puntos ciegos temporales inaceptables en un entorno de alto riesgo.
-2. **Efectividad ante la Negación:** En seguridad laboral, un falso negativo (no alertar sobre un trabajador sin casco) puede resultar en accidentes fatales o multas severas para la constructora. Al tener la clase `NO-Hardhat` entrenada explícitamente, YOLOv8 supera la incapacidad estructural que tienen YOLO-World y los VLM para entender eficientemente el concepto de negación de un atributo de seguridad.
+The experiment uses Ultralytics YOLO, Roboflow, PyTorch, OpenCV, Hugging Face Transformers, Florence-2 and Moondream2. Consult the licenses and model cards for the exact dataset, package and model revisions you use before redistribution. No repository-wide license is declared here.
